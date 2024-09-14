@@ -19,6 +19,7 @@ function init() {
     loadSound();
     loadModel();
     setupControls();
+    
     setupControllers();
     window.addEventListener('resize', onWindowResize);
 }
@@ -57,6 +58,17 @@ function setupControls() {
     controls.enableDamping = true;
 }
 
+function setupControllers() {
+    // Example for setting up VR controllers using WebXR
+    const controller1 = renderer.xr.getController(0);
+    scene.add(controller1);
+
+    const controller2 = renderer.xr.getController(1);
+    scene.add(controller2);
+
+    // Add any other controller setup code here, depending on what you're trying to implement
+}
+
 function loadSound() {
     listener = new THREE.AudioListener();
     camera.add(listener);
@@ -93,7 +105,6 @@ function loadModel() {
 
 function setupDragControls() {
     dragControls = new DragControls([chair], camera, renderer.domElement);
-    
     dragControls.addEventListener('dragstart', () => controls.enabled = false);
     dragControls.addEventListener('dragend', () => controls.enabled = true);
 }
