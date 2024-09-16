@@ -49,3 +49,6 @@ function loadSystemScene() {
         console.error('Failed to load system.js:', error);
     });
 }
+
+console.log(import.meta.env.VITE_API_KEY);
+console.log(import.meta.env.VITE_APP_TITLE);
