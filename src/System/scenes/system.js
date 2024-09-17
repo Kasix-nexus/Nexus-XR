@@ -1,3 +1,4 @@
+// system.js
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
@@ -9,8 +10,9 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 let camera, scene, renderer, controls, dragControls;
 let listener, sound;
 let controller1, controller2;
-let controllerGrip1, controllerGrip2;
 let draggableObjects = []; // Массив для draggable объектов
+let video, videoTexture, videoMaterial, videoPlane;
+let isWebcamBackground = true; // Флаг для текущего фона
 
 init();
 animate();
@@ -25,11 +27,14 @@ function init() {
   setupDragControls();
   loadSound();
   setupUploadButton();
+  setupToggleVideoBackgroundButton(); // Настройка кнопки скрытия/показа фона
+  setupWebcamBackground(); // Настройка вебкамеры
   window.addEventListener('resize', onWindowResize);
 }
 
 function setupScene() {
   scene = new THREE.Scene();
+  // Установка начального цвета фона
   scene.background = new THREE.Color(0xdddddd);
 }
 
@@ -74,7 +79,6 @@ function setupControllers() {
 
   controller2 = renderer.xr.getController(1);
   scene.add(controller2);
-  
 }
 
 function setupDragControls() {
@@ -156,11 +160,99 @@ function loadGLTFModel(file) {
   reader.readAsArrayBuffer(file);
 }
 
+function setupWebcamBackground() {
+  // Создаем элемент видео
+  video = document.createElement('video');
+  video.style.display = 'none'; // Скрываем видео с экрана
+  video.autoplay = true;
+  video.muted = true;
+  video.playsInline = true;
+  document.body.appendChild(video); // Добавляем в DOM, чтобы браузеры могли проигрывать видео
+
+  // Запрашиваем доступ к вебкамере
+  navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+    .then((stream) => {
+      video.srcObject = stream;
+      return video.play();
+    })
+    .then(() => {
+      // Создаем текстуру из видео
+      videoTexture = new THREE.VideoTexture(video);
+      videoTexture.minFilter = THREE.LinearFilter;
+      videoTexture.magFilter = THREE.LinearFilter;
+      videoTexture.format = THREE.RGBFormat;
+
+      // Создаем материал с видео текстурой
+      videoMaterial = new THREE.MeshBasicMaterial({ map: videoTexture });
+
+      // Создаем плоскость для фона
+      const geometry = new THREE.PlaneGeometry(16, 9); // Соотношение сторон 16:9
+      videoPlane = new THREE.Mesh(geometry, videoMaterial);
+      
+      // Настраиваем положение и масштаб плоскости
+      videoPlane.position.z = -10; // Располагаем плоскость позади остальных объектов
+      scene.add(videoPlane);
+
+      // Скрываем видеоплан изначально
+      videoPlane.visible = false;
+
+      // Обновляем размер плоскости в зависимости от окна
+      updateVideoPlane();
+    })
+    .catch((error) => {
+      console.error('Ошибка доступа к вебкамере:', error);
+      // В случае ошибки можно установить резервный цвет фона
+      scene.background = new THREE.Color(0x000000);
+      isWebcamBackground = false;
+    });
+}
+
+function updateVideoPlane() {
+  if (videoPlane) {
+    const aspect = window.innerWidth / window.innerHeight;
+    const videoAspect = 16 / 9; // Соотношение сторон видео
+
+    if (aspect > videoAspect) {
+      videoPlane.scale.set(aspect / videoAspect, 1, 1);
+    } else {
+      videoPlane.scale.set(1, videoAspect / aspect, 1);
+    }
+  }
+}
+
+function setupToggleVideoBackgroundButton() {
+  const toggleVideoBackgroundButton = document.getElementById('toggle-video-background-button');
+
+  toggleVideoBackgroundButton.addEventListener('click', () => {
+    if (videoPlane) {
+      videoPlane.visible = !videoPlane.visible;
+      toggleVideoBackgroundButton.textContent = videoPlane.visible ? 'Выключить WebCam' : 'Включить WebCam';
+    } else {
+      alert('Видео фон не доступен.');
+    }
+  });
+}
+
+function setupUploadButtonVisibility() {
+  const startButton = document.getElementById('startButton');
+  const uploadContainer = document.getElementById('upload-container');
+
+  startButton.addEventListener('click', () => {
+    // Скрываем кнопку Start
+    startButton.style.display = 'none';
+    // Показываем контейнер с кнопками
+    uploadContainer.style.display = 'flex';
+  });
+}
+
 function onWindowResize() {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
 
   renderer.setSize(window.innerWidth, window.innerHeight);
+
+  // Обновляем размер плоскости с видео
+  updateVideoPlane();
 }
 
 function animate() {
@@ -172,9 +264,14 @@ function animate() {
 
 // Экспортируемые функции, если нужны
 //export function initSystemScene() {
-  //init();
+//  init();
 //}
 
 export function animateSystemScene() {
   animate();
 }
+
+// Вызов функции для управления видимостью кнопок Start и Upload
+document.addEventListener('DOMContentLoaded', () => {
+  setupUploadButtonVisibility();
+});
