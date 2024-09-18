@@ -1,6 +1,7 @@
 {
   "dependencies": {
     "dotenv": "^16.4.5",
+    "rollup": "^4.21.3",
     "three": "^0.168.0"
   },
   "devDependencies": {
