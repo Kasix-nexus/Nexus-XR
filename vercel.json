@@ -1,0 +1,7 @@
+{
+    "builds": [
+      { "src": "index.html", "use": "@vercel/static-build", "config": { "distDir": "dist" } }
+    ],
+    "outputDirectory": "dist"
+  }
+  
