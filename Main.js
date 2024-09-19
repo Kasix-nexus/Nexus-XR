@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+
 let camera, scene, renderer;
 
 init();
@@ -42,7 +43,7 @@ function loadSystemScene() {
     renderer.dispose();
     
     // Dynamically load and switch to system.js
-    import('/src/system/scenes/System.js').then((module) => {
+    import('./src/System/scenes/system.js').then((module) => {
         module.animateSystemScene();
     }).catch((error) => {
         console.error('Failed to load system.js:', error);
