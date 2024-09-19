@@ -102,7 +102,7 @@ function loadSound() {
 
   const audioLoader = new THREE.AudioLoader();
   audioLoader.load(
-    '/src/System/audio/sound.wav', // Убедитесь в корректности пути
+    '/src/system/audio/sound.wav', // Убедитесь в корректности пути
     (buffer) => {
       sound.setBuffer(buffer);
       sound.setLoop(false);
@@ -275,3 +275,4 @@ export function animateSystemScene() {
 document.addEventListener('DOMContentLoaded', () => {
   setupUploadButtonVisibility();
 });
+
