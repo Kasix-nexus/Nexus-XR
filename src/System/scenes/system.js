@@ -101,7 +101,7 @@ function loadSound() {
 
   const audioLoader = new THREE.AudioLoader();
   audioLoader.load(
-    '/src/system/audio/sound.wav', // Убедитесь в корректности пути
+    '/src/system/audio/Sound.wav', // Убедитесь в корректности пути
     (buffer) => {
       sound.setBuffer(buffer);
       sound.setLoop(false);
