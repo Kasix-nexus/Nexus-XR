@@ -43,7 +43,7 @@ function loadSystemScene() {
     renderer.dispose();
     
     // Dynamically load and switch to system.js
-    import('/src/system/scenes/system.js').then((module) => {
+    import('/src/system/scenes/System.js').then((module) => {
         module.animateSystemScene();
     }).catch((error) => {
         console.error('Failed to load system.js:', error);
