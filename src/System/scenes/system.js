@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
 import { DragControls } from 'three/examples/jsm/controls/DragControls.js';
-import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 // Объявление переменных
@@ -11,7 +10,7 @@ let listener, sound;
 let controller1, controller2;
 let draggableObjects = []; // Массив для draggable объектов
 let video, videoTexture, videoMaterial, videoPlane;
-let isWebcamBackground = true; // Флаг для текущего фона
+
 
 init();
 animate();
@@ -25,11 +24,18 @@ function init() {
   setupControllers();
   setupDragControls();
   loadSound();
-  setupUploadButton();
-  setupToggleVideoBackgroundButton(); // Настройка кнопки скрытия/показа фона
-  setupWebcamBackground(); // Настройка вебкамеры
+  setupToggleVideoBackgroundButton();
+  setupBackgroundColorButton(); // Добавлен вызов функции настройки кнопки выбора цвета фона
+  setupWebcamBackground();
   window.addEventListener('resize', onWindowResize);
+
+  // Вызов функций для управления кнопками после загрузки DOM
+  document.addEventListener('DOMContentLoaded', () => {
+    setupUploadButtonVisibility();
+    setupUploadButton();  // Перенос вызова в DOMContentLoaded
+  });
 }
+
 
 function setupScene() {
   scene = new THREE.Scene();
@@ -55,6 +61,7 @@ function setupRenderer() {
   renderer.xr.enabled = true;
 
   document.body.appendChild(renderer.domElement);
+  // Remove the default VR button
   document.body.appendChild(VRButton.createButton(renderer));
 }
 
@@ -202,7 +209,6 @@ function setupWebcamBackground() {
       console.error('Ошибка доступа к вебкамере:', error);
       // В случае ошибки можно установить резервный цвет фона
       scene.background = new THREE.Color(0x000000);
-      isWebcamBackground = false;
     });
 }
 
@@ -232,6 +238,23 @@ function setupToggleVideoBackgroundButton() {
   });
 }
 
+function setupBackgroundColorButton() {
+  const backgroundColorButton = document.getElementById('background-color-button');
+  const colorPickerContainer = document.getElementById('color-picker-container');
+  const colorPicker = document.getElementById('color-picker');
+
+  // При клике на кнопку показываем селектор цвета
+  backgroundColorButton.addEventListener('click', () => {
+  });
+
+  // Когда пользователь выбирает цвет
+  colorPicker.addEventListener('input', (event) => {
+    const selectedColor = event.target.value;
+    // Устанавливаем цвет фона сцены
+    scene.background = new THREE.Color(selectedColor);
+  });
+}
+
 function setupUploadButtonVisibility() {
   const startButton = document.getElementById('startButton');
   const uploadContainer = document.getElementById('upload-container');
@@ -255,23 +278,29 @@ function onWindowResize() {
 }
 
 function animate() {
-  renderer.setAnimationLoop(() => {
-    controls.update();
-    renderer.render(scene, camera);
-  });
-}
+  requestAnimationFrame(animate);
 
-// Экспортируемые функции, если нужны
-//export function initSystemScene() {
-//  init();
-//}
+  // Обновление контролов
+  if (controls) controls.update();
+
+  // Обновление любых анимаций или эффектов
+  // Например, если вы используете библиотеки для анимации, вызовите здесь их методы обновления
+
+  // Рендеринг сцены
+  renderer.render(scene, camera);
+}
 
 export function animateSystemScene() {
-  animate();
+  function animate() {
+    renderer.setAnimationLoop(animate);
+  
+    // Обновление контролов
+    if (controls) controls.update();
+  
+    // Обновление любых анимаций или эффектов
+    // Например, если вы используете библиотеки для анимации, вызовите здесь их методы обновления
+  
+    // Рендеринг сцены
+    renderer.render(scene, camera);
+  }
 }
-
-// Вызов функции для управления видимостью кнопок Start и Upload
-document.addEventListener('DOMContentLoaded', () => {
-  setupUploadButtonVisibility();
-});
-

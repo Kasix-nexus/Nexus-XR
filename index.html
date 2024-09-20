@@ -4,89 +4,65 @@
   <meta charset="utf-8">
   <title>NexusXR Beta</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    /* Общие стили */
-    body, html {
-      margin: 0;
-      padding: 0;
-      width: 100vw;
-      height: 100vh;
-      overflow: hidden;
-      position: relative; /* Для правильного позиционирования внутренних элементов */
+  <!-- Подключение Tailwind CSS через CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Дополнительная конфигурация Tailwind для расширения blur эффектов -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          backdropBlur: {
+            xs: '2px',
+            sm: '4px',
+            md: '8px',
+            lg: '12px',
+            xl: '16px',
+            '2xl': '20px',
+          },
+          borderRadius: {
+            '50px': '50px',
+            '90px': '90px',
+          },
+          spacing: {
+            '10px': '10px',
+          },
+        },
+      },
     }
-    /* Стили для Canvas Three.js */
+  </script>
+</head>
+<body class="w-screen h-screen overflow-hidden relative">
+  <!-- Кнопка Start -->
+  <button id="startButton" class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 py-5 px-10 text-xl bg-[#28638A] text-white rounded-[90px] cursor-pointer z-20">Start</button>
+
+  <!-- Контейнер для кнопок -->
+  <div id="upload-container" class="fixed top-[10px] right-[10px] z-30 bg-white bg-opacity-80 p-[10px] rounded-[50px] backdrop-blur-xl  items-center ">
+    <!-- Кнопка загрузки GLTF модели -->
+    <button id="upload-button" class="py-2.5 px-5 text-sm bg-white bg-opacity-60 border border-gray-300 rounded-full cursor-pointer transition duration-100 ease-in-out hover:bg-opacity-80 hover:backdrop-blur-sm">Загрузить GLTF</button>
+    <!-- Кнопка переключения видео фона -->
+    <button id="toggle-video-background-button" class="py-2.5 px-5 text-sm bg-white bg-opacity-60 border border-gray-300 rounded-full cursor-pointer transition duration-100 ease-in-out hover:bg-opacity-80 hover:backdrop-blur-sm">Включить WebCam (Alpha)</button>
+    <!-- Кнопка выбора цвета фона -->
+    <button id="background-color-button" class="py-2.5 px-5 text-sm bg-white bg-opacity-60 border border-gray-300 rounded-full cursor-pointer transition duration-100 ease-in-out hover:bg-opacity-80 hover:backdrop-blur-xl relative">
+      Цвет фона
+      <!-- Селектор цвета внутри кнопки -->
+      <input type="color" id="color-picker" class="opacity-0 absolute top-0 left-0 w-full h-full cursor-pointer">
+    </button>
+  </div> 
+
+  <!-- Скрипт Three.js -->
+  <script type="module" src="/Main.js"></script>
+
+  <!-- Дополнительные стили для canvas -->
+  <style>
+    /* Поскольку canvas добавляется динамически, стилизуем его здесь */
     canvas {
       position: absolute;
       top: 0;
       left: 0;
       width: 100vw;
       height: 100vh;
-      z-index: 0; /* Низкий z-index, чтобы остальные элементы были выше */
-    }
-    /* Стили для кнопки Start */
-    #startButton {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      padding: 20px 40px;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-      font-size: 20px;
-      background-color: #28638A;
-      color: white;
-      border: none;
-      border-radius: 90px;
-      cursor: pointer;
-      z-index: 2; /* Выше Canvas */ 
-    }
-    /* Стили для контейнера загрузки */
-    #upload-container {
-      position: fixed; /* Фиксированное позиционирование */
-      top: 10px;
-      right: 10px;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-      z-index: 3; /* Самый высокий z-index */
-      background-color: rgba(255, 255, 255, 0.8);
-      padding: 10px;
-      border-radius: 50px; /* Скрываем до нажатия Start */
-      backdrop-filter: blur(14px); /* Добавляем blur эффект */ 
-      align-items: center;
-    }
-    /* Стили для кнопок загрузки и переключения видео фона */
-    #upload-button, #toggle-video-background-button {
-      padding: 10px 20px;
-      font-size: 14px;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-      background-color: rgba(255, 255, 255, 0.6);
-      border: 1px solid #ccc;
-      border-radius: 50px;
-      cursor: pointer;
-      align-items: center;
-      transition: background-color 0.1s, backdrop-filter 0.1s;
-    }
-    /* Добавляем hover эффект с blur */
-    #upload-button:hover, #toggle-video-background-button:hover {
-      backdrop-filter: blur(5px);
-      background-color: rgba(255, 255, 255, 0.8);
-    }
-    /* Скрытый input для выбора файла */
-    #file-input {
-      display: none;
+      z-index: 0;
     }
   </style>
-</head>
-<body>
-  <!-- Кнопка Start -->
-  <button id="startButton">Start</button>
-  
-  <!-- Контейнер для кнопок загрузки и переключения видео фона -->
-  <div id="upload-container"> <!-- Скрыт до нажатия Start -->
-    <button id="upload-button">Загрузить GLTF</button>
-    <button id="toggle-video-background-button">Включить WebCam (Alpha)</button>
-    <input type="file" id="file-input" accept=".gltf,.glb" />
-  </div> 
-
-  <!-- Скрипт Three.js -->
-  <script type="module" src="/Main.js"></script>
 </body>
 </html>
