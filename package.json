@@ -1,6 +1,8 @@
 {
   "dependencies": {
     "dotenv": "^16.4.5",
+    "gsap": "^3.12.5",
+    "react": "^18.3.1",
     "rollup": "^4.21.3",
     "three": "^0.168.0"
   },

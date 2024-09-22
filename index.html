@@ -4,57 +4,35 @@
   <meta charset="utf-8">
   <title>NexusXR Beta</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <!-- Подключение шрифта Roboto из Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+  
   <!-- Подключение Tailwind CSS через CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Дополнительная конфигурация Tailwind для расширения blur эффектов -->
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          backdropBlur: {
-            xs: '2px',
-            sm: '4px',
-            md: '8px',
-            lg: '12px',
-            xl: '16px',
-            '2xl': '20px',
-          },
-          borderRadius: {
-            '50px': '50px',
-            '90px': '90px',
-          },
-          spacing: {
-            '10px': '10px',
-          },
-        },
-      },
-    }
-  </script>
-</head>
-<body class="w-screen h-screen overflow-hidden relative">
-  <!-- Кнопка Start -->
-  <button id="startButton" class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 py-5 px-10 text-xl bg-[#28638A] text-white rounded-[90px] cursor-pointer z-20">Start</button>
-
-  <!-- Контейнер для кнопок -->
-  <div id="upload-container" class="fixed top-[10px] right-[10px] z-30 bg-white bg-opacity-80 p-[10px] rounded-[50px] backdrop-blur-xl  items-center ">
-    <!-- Кнопка загрузки GLTF модели -->
-    <button id="upload-button" class="py-2.5 px-5 text-sm bg-white bg-opacity-60 border border-gray-300 rounded-full cursor-pointer transition duration-100 ease-in-out hover:bg-opacity-80 hover:backdrop-blur-sm">Загрузить GLTF</button>
-    <!-- Кнопка переключения видео фона -->
-    <button id="toggle-video-background-button" class="py-2.5 px-5 text-sm bg-white bg-opacity-60 border border-gray-300 rounded-full cursor-pointer transition duration-100 ease-in-out hover:bg-opacity-80 hover:backdrop-blur-sm">Включить WebCam (Alpha)</button>
-    <!-- Кнопка выбора цвета фона -->
-    <button id="background-color-button" class="py-2.5 px-5 text-sm bg-white bg-opacity-60 border border-gray-300 rounded-full cursor-pointer transition duration-100 ease-in-out hover:bg-opacity-80 hover:backdrop-blur-xl relative">
-      Цвет фона
-      <!-- Селектор цвета внутри кнопки -->
-      <input type="color" id="color-picker" class="opacity-0 absolute top-0 left-0 w-full h-full cursor-pointer">
-    </button>
-  </div> 
-
-  <!-- Скрипт Three.js -->
-  <script type="module" src="/Main.js"></script>
-
-  <!-- Дополнительные стили для canvas -->
+  
+  <!-- Дополнительные стили для читаемости и эффекта размытия -->
   <style>
-    /* Поскольку canvas добавляется динамически, стилизуем его здесь */
+    /* Применение шрифта Roboto глобально */
+    body, button, input, h1, p {
+      font-family: 'Roboto', sans-serif;
+    }
+
+    /* Усиление эффекта Gaussian blur */
+    #welcomeWindow {
+      backdrop-filter: blur(20px); /* Увеличенное значение размытия */
+    }
+
+    /* Улучшение читаемости текста */
+    #welcomeWindow h1,
+    #welcomeWindow p {
+      color: #ffffff; /* Белый цвет текста */
+      text-shadow: 0 0 10px rgba(0, 0, 0, 0.7); /* Тень для лучшего контраста */
+    }
+
+    /* Дополнительные стили для canvas */
     canvas {
       position: absolute;
       top: 0;
@@ -63,6 +41,183 @@
       height: 100vh;
       z-index: 0;
     }
+
+    #background-color-button {
+  position: relative;
+}
+
+#color-picker {
+  display: none;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 100;
+}
+
   </style>
+</head>
+<body class="w-screen h-screen overflow-hidden relative bg-gray-900 flex items-center justify-center">
+  <!-- Окно приветствия -->
+  <div id="welcomeWindow" class="relative z-10 p-10 bg-white bg-opacity-10 rounded-3xl text-center max-w-md w-full">
+    <h1 class="text-4xl font-bold mb-4" data-i18n="welcomeTitle">Hello</h1>
+    <p class="text-lg mb-6" data-i18n="welcomeMessage">
+      Welcome to Nexus XR, where you can create your own worlds and view them on PC, phone, and any XR glasses.
+    </p>
+    <button id="startButton" class="py-2 px-6 text-lg bg-gray-100 text-gray-700 rounded-full transition duration-300 hover:bg-white" data-i18n="startButton">
+      Start
+    </button>
+  </div>
+
+  <!-- Контейнер для кнопок -->
+  <div id="upload-container" class="fixed top-2.5 right-2.5 z-30 bg-white bg-opacity-60 p-3 rounded-full backdrop-blur-xl flex space-x-2 items-center">
+    <!-- Кнопка загрузки GLTF модели -->
+    <button id="upload-button" class="py-2 px-4 text-sm bg-white bg-opacity-60 border border-gray-300 rounded-full cursor-pointer transition duration-100 ease-in-out hover:bg-opacity-80 hover:backdrop-blur-sm" data-i18n="uploadButton">
+      Upload GLTF
+    </button>
+    <!-- Скрытый файл для выбора файлов -->
+    <input type="file" id="file-input" accept=".gltf, .glb" style="display: none;">
+    
+    <!-- Кнопка переключения фонового видео -->
+    <button id="toggle-video-background-button" class="py-2 px-4 text-sm bg-white bg-opacity-60 border border-gray-300 rounded-full cursor-pointer transition duration-100 ease-in-out hover:bg-opacity-80 hover:backdrop-blur-sm" data-i18n="toggleWebcamButton">
+      Enable Webcam (Alpha)
+    </button>
+    
+    <!-- Кнопка выбора цвета фона -->
+    <button id="background-color-button" class="py-2 px-4 text-sm bg-white bg-opacity-60 border border-gray-300 rounded-full cursor-pointer transition duration-100 ease-in-out hover:bg-opacity-80 hover:backdrop-blur-sm relative" data-i18n="backgroundColorButton">
+      Background Color
+    </button>
+    <!-- Скрытый цветовой пикер -->
+    <input type="color" id="color-picker" class="absolute top-full right-0">
+
+    
+    <!-- Кнопка переключения языка -->
+    <button id="language-switcher" class="py-2 px-4 text-sm bg-white bg-opacity-60 border border-gray-300 rounded-full cursor-pointer transition duration-100 ease-in-out hover:bg-opacity-80 hover:backdrop-blur-sm">
+      EN
+    </button>
+  </div>
+  
+  <!-- Скрипт для управления UI элементами -->
+  <script>
+    // Словарь переводов
+    const translations = {
+      en: {
+        welcomeTitle: "Hello",
+        welcomeMessage: "Welcome to Nexus XR, where you can create your own worlds and view them on PC, phone, and any XR glasses.",
+        startButton: "Start",
+        uploadButton: "Upload GLTF",
+        toggleWebcamButton: "Enable Webcam (Alpha)",
+        backgroundColorButton: "Background Color",
+        disableWebcam: "Disable Webcam",
+        enableWebcam: "Enable Webcam"
+      },
+      ru: {
+        welcomeTitle: "Здравствуйте",
+        welcomeMessage: "Добро пожаловать в Nexus XR, где можно создавать свои миры и просматривать их с ПК, телефона и любых (XR) очков.",
+        startButton: "Начать",
+        uploadButton: "Загрузить GLTF",
+        toggleWebcamButton: "Включить WebCam (Alpha)",
+        backgroundColorButton: "Цвет фона",
+        disableWebcam: "Выключить WebCam",
+        enableWebcam: "Включить WebCam"
+      }
+    };
+
+    let currentLanguage = 'en'; // Язык по умолчанию
+
+    // Функция для обновления текста на основе выбранного языка
+    function updateLanguage(lang) {
+      document.querySelectorAll('[data-i18n]').forEach(element => {
+        const key = element.getAttribute('data-i18n');
+        if (translations[lang] && translations[lang][key]) {
+          element.textContent = translations[lang][key];
+        }
+      });
+
+      // Обновление текста кнопки переключения вебкама на основе видимости
+      const toggleWebcamButton = document.getElementById('toggle-video-background-button');
+      if (toggleWebcamButton) {
+        const videoPlaneVisible = window.videoPlaneVisible || false; // Отслеживание видимости
+        toggleWebcamButton.textContent = videoPlaneVisible ? translations[lang].disableWebcam : translations[lang].enableWebcam;
+      }
+    }
+
+    // Настройка обработчика кнопки переключения языка
+    function setupLanguageSwitcher() {
+      const languageSwitcher = document.getElementById('language-switcher');
+      if (!languageSwitcher) {
+        console.error('Не удалось найти элемент language-switcher в DOM.');
+        return;
+      }
+
+      languageSwitcher.addEventListener('click', () => {
+        currentLanguage = currentLanguage === 'en' ? 'ru' : 'en';
+        updateLanguage(currentLanguage);
+        languageSwitcher.textContent = currentLanguage.toUpperCase();
+      });
+    }
+
+    // Настройка кнопки "Start" для скрытия окна приветствия
+    function setupStartButton() {
+      const startButton = document.getElementById('startButton');
+      const welcomeWindow = document.getElementById('welcomeWindow');
+
+      if (!startButton || !welcomeWindow) {
+        console.error('Не удалось найти элементы startButton или welcomeWindow в DOM.');
+        return;
+      }
+
+      startButton.addEventListener('click', () => {
+        welcomeWindow.classList.add('hidden');
+      });
+    }
+
+    // Настройка кнопки выбора цвета фона и цветового пикера
+    function setupBackgroundColorButton() {
+      const backgroundColorButton = document.getElementById('background-color-button');
+      const colorPicker = document.getElementById('color-picker');
+
+      if (!backgroundColorButton || !colorPicker) {
+        console.error('Не удалось найти элементы background-color-button или color-picker в DOM.');
+        return;
+      }
+
+      // Открытие цветового пикера при нажатии на кнопку
+      backgroundColorButton.addEventListener('click', () => {
+        colorPicker.click(); // Триггерим клик на скрытом цветовом пикере
+      });
+
+      // Обработка выбранного цвета
+      colorPicker.addEventListener('input', (event) => {
+        const selectedColor = event.target.value;
+        document.body.style.backgroundColor = selectedColor;
+
+        // Установка цвета фона сцены в Three.js
+        if (typeof setSceneBackgroundColor === 'function') {
+          setSceneBackgroundColor(selectedColor);
+        }
+      });
+    }
+
+    // Инициализация всех настроек UI
+    function initUI() {
+      updateLanguage(currentLanguage);
+      setupLanguageSwitcher();
+      setupStartButton();
+      setupBackgroundColorButton();
+    }
+
+    // Ожидание загрузки DOM перед инициализацией UI
+    document.addEventListener('DOMContentLoaded', () => {
+      initUI();
+    });
+
+    // Слушатель изменений видимости видеофона из Main.js
+    window.addEventListener('videoPlaneVisibleChanged', () => {
+      updateLanguage(currentLanguage);
+    });
+  </script>
+  
+  <!-- Скрипт Three.js -->
+  <script type="module" src="./Main.js"></script>
 </body>
 </html>
