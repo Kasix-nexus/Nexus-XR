@@ -4,23 +4,24 @@ import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
 import { DragControls } from 'three/examples/jsm/controls/DragControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.js';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
+import { FXAAShader } from 'three/examples/jsm/shaders/FXAAShader.js';
+import { SSAOPass } from 'three/examples/jsm/postprocessing/SSAOPass.js';
 
-// Declare variables
 let camera, scene, renderer, controls, dragControls;
 let listener, sound;
 let controller1, controller2;
-let draggableObjects = []; // Array for draggable objects
+let draggableObjects = [];
 let video, videoTexture, videoMaterial, videoPlane;
+let composer, bloomPass, fxaaPass, ssaoPass;
 
-// Expose a global function to set the scene background color
-window.setSceneBackgroundColor = function(color) {
-  if (scene) {
-    scene.background = new THREE.Color(color);
-  }
-  // Also handle the videoPlane visibility if needed
+window.setSceneBackgroundColor = function (color) {
+  if (scene) scene.background = new THREE.Color(color);
 };
 
-// Initialize and animate the scene
 init();
 animate();
 
@@ -37,37 +38,27 @@ function init() {
   setupWebcamBackground();
   setupBackgroundColorButton();
   setupUploadButton();
+  setupPostProcessing();
   window.addEventListener('resize', onWindowResize);
 
-
-   // Call button management functions after DOM loads
-   document.addEventListener('DOMContentLoaded', () => {
-    // Update language initially
-    updateLanguage(currentLanguage);
-  
-    // Language Switcher Event Listener
+  document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('language-switcher').addEventListener('click', () => {
       currentLanguage = currentLanguage === 'en' ? 'ru' : 'en';
       updateLanguage(currentLanguage);
       document.getElementById('language-switcher').textContent = currentLanguage.toUpperCase();
     });
-  
-    // Manage Welcome Window
+
     document.getElementById('startButton').addEventListener('click', () => {
       document.getElementById('welcomeWindow').classList.add('hidden');
     });
-  
-    // Background Color Button Event Listener
+
     document.getElementById('background-color-button').addEventListener('click', () => {
-      document.getElementById('color-picker').click(); // Trigger the color picker
+      document.getElementById('color-picker').click();
     });
-  
-    // Color Picker Change Event Listener
+
     document.getElementById('color-picker').addEventListener('input', (event) => {
       const selectedColor = event.target.value;
       document.body.style.backgroundColor = selectedColor;
-  
-      // Set the scene background color in Three.js
       if (typeof setSceneBackgroundColor === 'function') {
         setSceneBackgroundColor(selectedColor);
       }
@@ -77,7 +68,6 @@ function init() {
 
 function setupScene() {
   scene = new THREE.Scene();
-  // Set initial background color
   scene.background = new THREE.Color(0xdddddd);
 }
 
@@ -97,19 +87,48 @@ function setupRenderer() {
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.outputEncoding = THREE.sRGBEncoding;
   renderer.xr.enabled = true;
-
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.autoClear = false; // Важно для пост-обработки
   document.body.appendChild(renderer.domElement);
-  // Add VR button to enter VR mode
   document.body.appendChild(VRButton.createButton(renderer));
 }
 
 function setupLighting() {
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+  // Полуширотный свет
+  const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
+  hemiLight.position.set(0, 20, 0);
+  scene.add(hemiLight);
+
+  // Направленный свет
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 2.0);
+  directionalLight.position.set(-10, 10, 10);
+  directionalLight.castShadow = true;
+
+  // Настройка теней
+  directionalLight.shadow.mapSize.width = 2048;
+  directionalLight.shadow.mapSize.height = 2048;
+  const shadowCamera = directionalLight.shadow.camera;
+  shadowCamera.near = 0.5;
+  shadowCamera.far = 100;
+  shadowCamera.left = -10;
+  shadowCamera.right = 10;
+  shadowCamera.top = 10;
+  shadowCamera.bottom = -10;
+  directionalLight.shadow.radius = 4;
+  directionalLight.shadow.bias = -0.0001;
+
+  scene.add(directionalLight);
+
+  // Добавление Ambient Light
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.2); // Цвет и интенсивность
   scene.add(ambientLight);
 
-  const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-  directionalLight.position.set(5, 10, 7.5);
-  scene.add(directionalLight);
+  // Опционально: отображение камеры теней для отладки
+  /*
+  const helper = new THREE.CameraHelper(directionalLight.shadow.camera);
+  scene.add(helper);
+  */
 }
 
 function setupControls() {
@@ -120,34 +139,23 @@ function setupControls() {
 function setupControllers() {
   controller1 = renderer.xr.getController(0);
   scene.add(controller1);
-
   controller2 = renderer.xr.getController(1);
   scene.add(controller2);
-
   const geometry = new THREE.BufferGeometry().setFromPoints([
     new THREE.Vector3(0, 0, 0),
     new THREE.Vector3(0, 0, -1),
   ]);
 
-  const lineMaterial = new THREE.LineBasicMaterial({
-    color: 0xffffff,
-    linewidth: 2,
-  });
-
+  const lineMaterial = new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2 });
   const line = new THREE.Line(geometry, lineMaterial);
   line.name = 'line';
   line.scale.z = 5;
-
   controller1.add(line.clone());
   controller2.add(line.clone());
-
-  // Add controller models
   const controllerModelFactory = new XRControllerModelFactory();
-
   const controllerGrip1 = renderer.xr.getControllerGrip(0);
   controllerGrip1.add(controllerModelFactory.createControllerModel(controllerGrip1));
   scene.add(controllerGrip1);
-
   const controllerGrip2 = renderer.xr.getControllerGrip(1);
   controllerGrip2.add(controllerModelFactory.createControllerModel(controllerGrip2));
   scene.add(controllerGrip2);
@@ -155,13 +163,10 @@ function setupControllers() {
 
 function setupDragControls() {
   dragControls = new DragControls(draggableObjects, camera, renderer.domElement);
-
-  // Disable OrbitControls during dragging
-  dragControls.addEventListener('dragstart', function (event) {
+  dragControls.addEventListener('dragstart', () => {
     controls.enabled = false;
   });
-
-  dragControls.addEventListener('dragend', function (event) {
+  dragControls.addEventListener('dragend', () => {
     controls.enabled = true;
   });
 }
@@ -171,10 +176,9 @@ function loadSound() {
   camera.add(listener);
 
   sound = new THREE.Audio(listener);
-
   const audioLoader = new THREE.AudioLoader();
   audioLoader.load(
-    './src/System/audio/sound.wav', // Ensure the path is correct
+    './src/System/audio/sound.wav',
     (buffer) => {
       sound.setBuffer(buffer);
       sound.setLoop(false);
@@ -193,94 +197,88 @@ function setupUploadButton() {
   const fileInput = document.getElementById('file-input');
 
   if (!uploadButton || !fileInput) {
-    console.error('Could not find upload-button or file-input elements in the DOM.');
+    console.error('Не удалось найти элементы upload-button или file-input в DOM.');
     return;
   }
 
   uploadButton.addEventListener('click', () => {
-    console.log('Upload button clicked.');
     fileInput.click();
   });
 
   fileInput.addEventListener('change', (event) => {
     const file = event.target.files[0];
     if (file) {
-      console.log('File selected:', file.name);
       loadGLTFModel(file);
     } else {
-      console.log('No file selected.');
+      console.log('Файл не выбран.');
     }
   });
 }
 
 function loadGLTFModel(file) {
   const url = URL.createObjectURL(file);
-
   const loader = new GLTFLoader();
+
   loader.load(
     url,
     (gltf) => {
       const model = gltf.scene;
+      model.traverse((child) => {
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+          
+          // Настройка AO карты, если она есть
+          if (child.material && child.material.map) {
+            child.material.aoMap = child.material.map; // Предполагается, что AO карта встроена
+            child.material.aoMapIntensity = 1.0;
+            child.geometry.setAttribute('uv2', new THREE.BufferAttribute(child.geometry.attributes.uv.array, 2));
+          }
+        }
+      });
       scene.add(model);
       draggableObjects.push(model);
-
-      // Update DragControls with the new object
       setupDragControls();
-
-      console.log('Model loaded:', model);
-
-      // Release memory
       URL.revokeObjectURL(url);
     },
     undefined,
     (error) => {
-      console.error('Error loading GLTF model:', error);
+      console.error('Ошибка при загрузке GLTF модели:', error);
     }
   );
 }
 
 function setupWebcamBackground() {
-  // Create video element
   video = document.createElement('video');
-  video.style.display = 'none'; // Hide video from the screen
+  video.style.display = 'none';
   video.autoplay = true;
   video.muted = true;
   video.playsInline = true;
-  document.body.appendChild(video); // Add to DOM so browsers can play the video
+  document.body.appendChild(video);
 
-  // Request access to the webcam
-  navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+  navigator.mediaDevices
+    .getUserMedia({ video: true, audio: false })
     .then((stream) => {
       video.srcObject = stream;
       return video.play();
     })
     .then(() => {
-      // Create texture from video
       videoTexture = new THREE.VideoTexture(video);
       videoTexture.minFilter = THREE.LinearFilter;
       videoTexture.magFilter = THREE.LinearFilter;
       videoTexture.format = THREE.RGBFormat;
 
-      // Create material with video texture
       videoMaterial = new THREE.MeshBasicMaterial({ map: videoTexture });
 
-      // Create a plane for the background
-      const geometry = new THREE.PlaneGeometry(16, 9); // 16:9 aspect ratio
+      const geometry = new THREE.PlaneGeometry(16, 9);
       videoPlane = new THREE.Mesh(geometry, videoMaterial);
-
-      // Set position and scale of the plane
-      videoPlane.position.z = -10; // Place the plane behind other objects
+      videoPlane.position.z = -10;
       scene.add(videoPlane);
-
-      // Initially hide the video plane
       videoPlane.visible = false;
-
-      // Update the plane size based on the window
       updateVideoPlane();
     })
     .catch((error) => {
-      console.error('Error accessing the webcam:', error);
-      // In case of error, set a fallback background color
+      console.error('Ошибка доступа к веб-камере:', error);
       scene.background = new THREE.Color(0x000000);
     });
 }
@@ -288,8 +286,7 @@ function setupWebcamBackground() {
 function updateVideoPlane() {
   if (videoPlane) {
     const aspect = window.innerWidth / window.innerHeight;
-    const videoAspect = 16 / 9; // Video aspect ratio
-
+    const videoAspect = 16 / 9;
     if (aspect > videoAspect) {
       videoPlane.scale.set(aspect / videoAspect, 1, 1);
     } else {
@@ -302,18 +299,19 @@ function setupToggleVideoBackgroundButton() {
   const toggleVideoBackgroundButton = document.getElementById('toggle-video-background-button');
 
   if (!toggleVideoBackgroundButton) {
-    console.error('Could not find toggle-video-background-button in the DOM.');
+    console.error('Не удалось найти элемент toggle-video-background-button в DOM.');
     return;
   }
 
   toggleVideoBackgroundButton.addEventListener('click', () => {
     if (videoPlane) {
       videoPlane.visible = !videoPlane.visible;
-      // Track visibility for language update
       window.videoPlaneVisible = videoPlane.visible;
-      toggleVideoBackgroundButton.textContent = videoPlane.visible ? 'Disable Webcam' : 'Enable Webcam';
+      toggleVideoBackgroundButton.textContent = videoPlane.visible
+        ? 'Отключить веб-камеру'
+        : 'Включить веб-камеру';
     } else {
-      alert('Video background is not available.');
+      alert('Видео фон недоступен.');
     }
   });
 }
@@ -323,37 +321,67 @@ function setupBackgroundColorButton() {
   const colorPicker = document.getElementById('color-picker');
 
   if (!backgroundColorButton || !colorPicker) {
-    console.error('Could not find background-color-button or color-picker in the DOM.');
+    console.error('Не удалось найти элементы background-color-button или color-picker в DOM.');
     return;
   }
 
-  // Show color picker when the button is clicked
   backgroundColorButton.addEventListener('click', () => {
-    colorPicker.click(); // Trigger the color picker
+    colorPicker.click();
   });
 
-  // When the user selects a color
   colorPicker.addEventListener('input', (event) => {
     const selectedColor = event.target.value;
     document.body.style.backgroundColor = selectedColor;
-
-    // Set the scene background color
     if (window.setSceneBackgroundColor) {
       window.setSceneBackgroundColor(selectedColor);
     }
   });
 }
 
+function setupPostProcessing() {
+  composer = new EffectComposer(renderer);
+  
+  const renderPass = new RenderPass(scene, camera);
+  composer.addPass(renderPass);
 
-// Function to set up the start button
+  // Настройка SSAO Pass
+  ssaoPass = new SSAOPass(scene, camera, window.innerWidth, window.innerHeight);
+  ssaoPass.kernelRadius = 16; // Радиус выборки
+  ssaoPass.minDistance = 0.005; // Минимальная дистанция для AO
+  ssaoPass.maxDistance = 0.1;   // Максимальная дистанция для AO
+  ssaoPass.output = SSAOPass.OUTPUT.Default; // Тип вывода
+  composer.addPass(ssaoPass);
+
+  // Настройка эффекта Bloom
+  bloomPass = new UnrealBloomPass(
+    new THREE.Vector2(window.innerWidth, window.innerHeight),
+    0.1, // Интенсивность
+    0.1, // Радиус
+    0.85 // Порог
+  );
+  composer.addPass(bloomPass);
+
+  // Настройка FXAA Pass
+  fxaaPass = new ShaderPass(FXAAShader);
+  fxaaPass.uniforms['resolution'].value.set(1 / window.innerWidth, 1 / window.innerHeight);
+  fxaaPass.renderToScreen = true;
+  composer.addPass(fxaaPass);
+}
 
 function onWindowResize() {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
-
   renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
 
-  // Update the video plane size
+  if (fxaaPass) {
+    fxaaPass.uniforms['resolution'].value.set(1 / window.innerWidth, 1 / window.innerHeight);
+  }
+
+  if (ssaoPass) {
+    ssaoPass.setSize(window.innerWidth, window.innerHeight);
+  }
+
   updateVideoPlane();
 }
 
@@ -362,9 +390,7 @@ function animate() {
 }
 
 function render() {
-  // Update controls
   if (controls) controls.update();
-
-  // Render the scene
-  renderer.render(scene, camera);
+  if (videoTexture) videoTexture.needsUpdate = true;
+  composer.render();
 }
